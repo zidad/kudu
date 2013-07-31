@@ -96,7 +96,9 @@
     <Compile Include="SSHKey\PEMEncoder.cs" />
     <Compile Include="SSHKey\SSHEncoding.cs" />
     <Compile Include="SSHKey\SSHKeyManager.cs" />
+    <Compile Include="Tracing\Analytics.cs" />
     <Compile Include="Tracing\CascadeTracer.cs" />
+    <Compile Include="Tracing\IAnalytics.cs" />
     <Compile Include="Tracing\ITraceFactory.cs" />
     <Compile Include="Tracing\TextLogger.cs" />
     <Compile Include="Tracing\NullTracer.cs" />

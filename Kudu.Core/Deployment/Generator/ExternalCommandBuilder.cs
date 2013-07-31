@@ -21,6 +21,8 @@ namespace Kudu.Core.Deployment.Generator
             ExternalCommandFactory = new ExternalCommandFactory(environment, settings, repositoryPath);
         }
 
+        public abstract string ProjectType { get; }
+
         protected IEnvironment Environment { get; private set; }
 
         protected IDeploymentSettingsManager DeploymentSettings { get; private set; }

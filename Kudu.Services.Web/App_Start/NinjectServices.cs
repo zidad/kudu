@@ -153,6 +153,12 @@ namespace Kudu.Services.Web.App_Start
             kernel.Bind<IOperationLock>().ToConstant(hooksLock).WhenInjectedInto<WebHooksManager>();
             kernel.Bind<IOperationLock>().ToConstant(_deploymentLock);
 
+            /*string analyticsPath = Path.Combine(environment.AnalyticsPath, Constants.AnalyticsFile);
+            var analytics = new Analytics(fileSystem, traceFactory, analyticsPath);
+            kernel.Bind<IAnalytics>().ToConstant(analytics);*/
+            kernel.Bind<IAnalytics>().ToMethod(context =>
+                new Analytics(fileSystem, context.Kernel.Get<ITracer>(), environment.AnalyticsPath));
+
             var shutdownDetector = new ShutdownDetector();
             shutdownDetector.Initialize();
 
