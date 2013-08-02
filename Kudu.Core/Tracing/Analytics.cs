@@ -87,7 +87,7 @@ namespace Kudu.Core.Tracing
                 analyticLogFiles.OrderBy(file => file.LastWriteTimeUtc).First().Delete();
             }
 
-            FileInfoBase currentFileInfo = analyticLogFiles.First/*OrDefault*/(file => String.Equals(file.Name, _currentFileName));
+            FileInfoBase currentFileInfo = analyticLogFiles.FirstOrDefault(file => String.Equals(file.Name, _currentFileName, StringComparison.OrdinalIgnoreCase));
             if (currentFileInfo != null && currentFileInfo.Length > MaxFileSize)
             {
                 UpdateCurrentPath(analyticLogFiles, increaseIndex: true);
@@ -137,15 +137,22 @@ namespace Kudu.Core.Tracing
 
         private class KuduAnalyticsEvent
         {
+            public DateTime EventDate { get; set; }
             public string EventType { get; set; }
             public string ProjectType { get; set; }
             public string Result { get; set; }
             public long? Duration { get; set; }
 
+            public KuduAnalyticsEvent()
+            {
+                EventDate = DateTime.UtcNow;
+            }
+
             public IDictionary<string, string> ToDictionary()
             {
                 Dictionary<string, string> result = new Dictionary<string, string>();
 
+                result["EventDate"] = EventDate.ToString();
                 result["EventType"] = EventType;
                 result["ProjectType"] = ProjectType;
                 result["Result"] = Result;
