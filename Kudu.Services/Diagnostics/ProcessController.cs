@@ -40,6 +40,21 @@ namespace Kudu.Services.Performance
         }
 
         [HttpGet]
+        public HttpResponseMessage GetOpenFiles(int id)
+        {
+            using (_tracer.Step("ProcessController.GetOpenFiles"))
+            {
+                List<string> files = new List<string>();
+                var openFiles = DetectOpenFiles.GetOpenFilesEnumerator(id);
+                while (openFiles.MoveNext())
+                {
+                    files.Add(openFiles.Current.FullName);
+                }
+                return Request.CreateResponse(HttpStatusCode.OK, files);
+            }
+        }
+
+        [HttpGet]
         public HttpResponseMessage GetThread(int processId, int threadId)
         {
             using (_tracer.Step("ProcessController.GetThread"))
@@ -238,6 +253,7 @@ namespace Kudu.Services.Performance
                 info.PrivateMemorySize64 = SafeGetValue(() => process.PrivateMemorySize64, -1);
                 
                 info.MiniDump = new Uri(selfLink + "/dump");
+                info.OpenFileHandles = new Uri(selfLink + "/openfiles");
                 info.Parent = new Uri(selfLink, SafeGetValue(() => process.GetParentId(_tracer), 0).ToString());
                 info.Children = SafeGetValue(() => process.GetChildren(_tracer, recursive: false), Enumerable.Empty<Process>()).Select(c => new Uri(selfLink, c.Id.ToString()));
                 info.Threads = SafeGetValue(() => GetThreads(process, selfLink.ToString()), Enumerable.Empty<ProcessThreadInfo>());
