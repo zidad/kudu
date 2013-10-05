@@ -45,6 +45,7 @@
     <Compile Include="Deployment\CascadeLogger.cs" />
     <Compile Include="Deployment\DeploymentStatusFileExtensions.cs" />
     <Compile Include="Deployment\DeploymentStatusManager.cs" />
+    <Compile Include="Deployment\Generator\ConsoleBuilder.cs" />
     <Compile Include="Deployment\Generator\CustomGeneratorCommandSiteBuilder.cs" />
     <Compile Include="Deployment\Generator\ExternalCommandFactory.cs" />
     <Compile Include="Deployment\ProgressLogger.cs" />
@@ -138,6 +139,9 @@
     <Compile Include="SourceControl\Hg\HgRepository.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Scripts\ConsoleWorker\Global.asax.template">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <Content Include="Scripts\starter.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -174,6 +178,9 @@
       <Link>Scripts\NuGet.exe</Link>
     </Content>
     <None Include="Scripts\postdeployment">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Scripts\ConsoleWorker\Web.config.template">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

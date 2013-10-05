@@ -10,7 +10,7 @@ set counter=0
 set /a counter+=1
 echo Attempt %counter% out of %attempts%
 
-cmd /c npm install https://github.com/projectkudu/KuduScript/tarball/57319ab0941d4a229f41a6e919daae3f6f4a0b3f
+cmd /c npm install https://github.com/projectkudu/KuduScript/tarball/4d17244391f3e53df1618c5a7b3d7de382c387cf
 IF %ERRORLEVEL% NEQ 0 goto error
 
 goto end

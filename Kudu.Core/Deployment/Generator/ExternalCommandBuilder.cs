@@ -1,13 +1,10 @@
 ﻿using System;
-using System.IO;
 using System.Threading.Tasks;
 using Kudu.Contracts.Settings;
 using Kudu.Contracts.Tracing;
-using Kudu.Core.Infrastructure;
 
 namespace Kudu.Core.Deployment.Generator
 {
-
     //  Site builder class hierarchy:
     //
     //  ExternalCommandBuilder
@@ -59,10 +56,7 @@ namespace Kudu.Core.Deployment.Generator
             exe.EnvironmentVariables[WellKnownEnvironmentVariables.PreviousManifestPath] = context.PreviousManifestFilePath ?? String.Empty;
             exe.EnvironmentVariables[WellKnownEnvironmentVariables.NextManifestPath] = context.NextManifestFilePath;
 
-            // Create a directory for the script output temporary artifacts
-            string buildTempPath = Path.Combine(Environment.TempPath, Guid.NewGuid().ToString());
-            FileSystemHelpers.EnsureDirectory(buildTempPath);
-            exe.EnvironmentVariables[WellKnownEnvironmentVariables.BuildTempPath] = buildTempPath;
+            exe.EnvironmentVariables[WellKnownEnvironmentVariables.BuildTempPath] = context.BuildTempPath;
 
             // Populate the environment with the build properties
             foreach (var property in PropertyProvider.GetProperties())
@@ -84,27 +78,6 @@ namespace Kudu.Core.Deployment.Generator
                 context.GlobalLogger.LogError();
 
                 throw;
-            }
-            finally
-            {
-                // Clean the temp folder up
-                CleanBuild(context.Tracer, buildTempPath);
-                FileSystemHelpers.DeleteDirectorySafe(buildTempPath);
-            }
-        }
-
-        private static void CleanBuild(ITracer tracer, string buildTempPath)
-        {
-            using (tracer.Step("Cleaning up temp files"))
-            {
-                try
-                {
-                    FileSystemHelpers.DeleteDirectorySafe(buildTempPath);
-                }
-                catch (Exception ex)
-                {
-                    tracer.TraceError(ex);
-                }
             }
         }
     }

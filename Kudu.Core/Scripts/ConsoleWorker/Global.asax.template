@@ -1,0 +1,177 @@
+﻿<%@ Application Language="C#" %>
+<%@ Import Namespace="System.Diagnostics" %>
+<%@ Import Namespace="System.IO" %>
+<%@ Import Namespace="System.Threading" %>
+
+<script RunAt="server">
+
+    private const string RunScript = "run.cmd";
+
+    private static TraceSource TraceSource = new TraceSource("WorkerTraceSource", SourceLevels.All);
+
+    private static readonly WorkerThread Worker = new WorkerThread();
+
+    protected void Application_Start(object sender, EventArgs e)
+    {
+        TraceSource.Listeners.Clear();
+        TraceSource.Listeners.AddRange(System.Diagnostics.Trace.Listeners);
+        Worker.Start();
+    }
+
+    protected void Application_BeginRequest(object sender, EventArgs e)
+    {
+        var httpApplication = sender as HttpApplication;
+        if (httpApplication != null)
+        {
+            var response = httpApplication.Context.Response;
+            response.Write(Worker.Status);
+            response.End();
+        }
+    }
+
+    protected void Application_End(object sender, EventArgs e)
+    {
+        TraceInformation("Worker went down at " + DateTime.UtcNow);
+    }
+
+    private static void TraceVerbose(string message, params object[] args)
+    {
+        Trace(TraceEventType.Verbose, message, args);
+    }
+
+    private static void TraceInformation(string message, params object[] args)
+    {
+        Trace(TraceEventType.Information, message, args);
+    }
+
+    private static void TraceError(string message, params object[] args)
+    {
+        Trace(TraceEventType.Error, message, args);
+    }
+
+    private static void Trace(TraceEventType traceEventType, string format, params object[] args)
+    {
+        if (args == null || args.Length == 0)
+        {
+            TraceSource.TraceEvent(traceEventType, 0, format);
+        }
+        else
+        {
+            TraceSource.TraceEvent(traceEventType, 0, format, args);
+        }
+    }
+
+    private class WorkerThread
+    {
+        private bool _started;
+        private Thread _worker;
+
+        public void Start()
+        {
+            if (_started)
+            {
+                return;
+            }
+
+            Status = "Starting...";
+            _started = true;
+            _worker = new Thread(WorkerRun);
+            _worker.Start();
+        }
+
+        public void Stop()
+        {
+            _started = false;
+        }
+
+        public string Status { get; private set; }
+
+        private void WorkerRun()
+        {
+            TraceInformation("Starting worker");
+
+            while (_started)
+            {
+                try
+                {
+                    string binPath = Path.Combine(HttpRuntime.AppDomainAppPath, "bin");
+
+                    TraceVerbose("Starting process");
+
+                    if (!File.Exists(Path.Combine(binPath, RunScript)))
+                    {
+                        Status = "Missing run.cmd file.";
+                        TraceError(Status);
+                    }
+                    else
+                    {
+                        Status = "Running...";
+
+                        var process = StartProcess(binPath);
+
+                        process.WaitForExit();
+
+                        var traceEventType = process.ExitCode == 0 ? TraceEventType.Verbose : TraceEventType.Error;
+                        Trace(traceEventType, "Process exited with exit code: {0}", process.ExitCode);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    TraceError("Process threw an exception: {0}", ex);
+                }
+
+                TraceVerbose("Waiting for 30 seconds...");
+
+                Thread.Sleep(30 * 1000);
+            }
+        }
+
+        private static Process StartProcess(string binPath)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "cmd",
+                WorkingDirectory = binPath,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = false,
+                ErrorDialog = false,
+                Arguments = "/c " + RunScript
+            };
+
+            var process = new Process()
+            {
+                StartInfo = psi
+            };
+
+            process.EnableRaisingEvents = true;
+
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                {
+                    TraceSource.TraceInformation(e.Data);
+                }
+            };
+
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                {
+                    TraceError(e.Data);
+                }
+            };
+
+            process.Start();
+
+            process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
+            process.StandardInput.Close();
+
+            return process;
+        }
+    }
+</script>

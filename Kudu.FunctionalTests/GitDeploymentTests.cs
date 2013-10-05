@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Kudu.Contracts.Settings;
 using Kudu.Core;
@@ -9,6 +10,7 @@ using Kudu.Core.Deployment;
 using Kudu.FunctionalTests.Infrastructure;
 using Kudu.TestHarness;
 using Xunit;
+using Xunit.Sdk;
 
 namespace Kudu.FunctionalTests
 {
@@ -172,6 +174,99 @@ namespace Kudu.FunctionalTests
         public void PushAndDeployMVCAppWithLatestNuget()
         {
             PushAndDeployApps("MVCAppWithLatestNuget", "master", "MVCAppWithLatestNuget", HttpStatusCode.OK, "Deployment successful");
+        }
+
+        [Fact]
+        public void PushAndDeployConsoleWorker()
+        {
+            const string verificationFilePath = "LogFiles/verification.txt";
+            const string runScriptPath = "Site/wwwroot/bin/run.cmd";
+            const string runningVerification = "Running...";
+            const string stoppedVerification = "Missing run.cmd file.";
+            const string expectedVerificationFileContent = "Verified!!!";
+
+            ApplicationManager.Run("ConsoleWorker", appManager =>
+            {
+                ///////// Part 1
+                TestTracer.Trace("Starting ConsoleWorker test, deploying the worker");
+
+                using (TestRepository testRepository = Git.Clone("ConsoleWorker"))
+                {
+                    appManager.GitDeploy(testRepository.PhysicalPath);
+                }
+                var results = appManager.DeploymentManager.GetResultsAsync().Result.ToList();
+
+                Assert.Equal(1, results.Count);
+                Assert.Equal(DeployStatus.Success, results[0].Status);
+
+                KuduAssert.VerifyUrl(appManager.SiteUrl, runningVerification);
+
+                TestTracer.Trace("Waiting for the verification file...");
+
+                bool verificationFileExists = false;
+                for (int checkCount = 0; !verificationFileExists && checkCount < 10; checkCount++)
+                {
+                    Thread.Sleep(500);
+                    verificationFileExists = appManager.VfsManager.Exists(verificationFilePath);
+                }
+
+                string verificationFileContent = appManager.VfsManager.ReadAllText(verificationFilePath);
+                Assert.Equal(expectedVerificationFileContent, verificationFileContent.TrimEnd());
+
+                ///////// Part 2
+                TestTracer.Trace("Waiting for worker to start the process again...");
+
+                string[] lines = new string[0];
+                for (int checkCount = 0; lines.Length < 2 && checkCount < 60; checkCount++)
+                {
+                    Thread.Sleep(1000);
+                    verificationFileContent = appManager.VfsManager.ReadAllText(verificationFilePath);
+                    lines = verificationFileContent.Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                }
+
+                Assert.Equal(2, lines.Length);
+                Assert.Equal(expectedVerificationFileContent, lines[1]);
+
+                ///////// Part 3
+                TestTracer.Trace("Verifying worker stopped when run.cmd is missing");
+
+                appManager.VfsManager.Delete(runScriptPath);
+
+                bool workerStopped = false;
+                for (int checkCount = 0; !workerStopped && checkCount < 60; checkCount++)
+                {
+                    try
+                    {
+                        Thread.Sleep(1000);
+                        KuduAssert.VerifyUrl(appManager.SiteUrl, stoppedVerification);
+                        workerStopped = true;
+                    }
+                    catch (AssertException)
+                    {
+                    }
+                }
+                KuduAssert.VerifyUrl(appManager.SiteUrl, stoppedVerification);
+
+                ///////// Part 4
+                TestTracer.Trace("Verifying worker starts again when run.cmd is back");
+
+                appManager.VfsManager.WriteAllText(runScriptPath, "ConsoleWorker.exe");
+
+                bool workerStarted = false;
+                for (int checkCount = 0; !workerStarted && checkCount < 60; checkCount++)
+                {
+                    try
+                    {
+                        Thread.Sleep(1000);
+                        KuduAssert.VerifyUrl(appManager.SiteUrl, runningVerification);
+                        workerStarted = true;
+                    }
+                    catch (AssertException)
+                    {
+                    }
+                }
+                KuduAssert.VerifyUrl(appManager.SiteUrl, runningVerification);
+            });
         }
 
         [Fact]
